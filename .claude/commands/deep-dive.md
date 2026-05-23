@@ -42,10 +42,14 @@ Run these four buckets in order. Append every fetched response (URL + text) to t
 
 **Bucket A — Customer language harvest**
 
-1. Call `uv run python -m scout reddit --subreddits "<relevant>" --keywords "<icp keywords>" --limit 20`. Append each thread's `title + selftext` to the fetch log.
-2. For the 5-10 top-scoring threads, call the Firecrawl scrape MCP on each thread URL to get full comments. Append the response text to the fetch log.
-3. Call `mcp__perplexity__perplexity_search` for "G2 / Capterra / TrustRadius reviews complaining about <pain area> in <ICP>". Append the result text + citations to the fetch log.
-4. Extract 20-30 candidate quotes (verbatim, in the source's voice). Each must have: `text`, `source` (site/sub), `date`, `url`. Filter: keep quotes with concrete pain, urgency, dollar mentions, or "I wish someone would..." patterns. Target 8-15 final quotes after verification.
+Pull from four pain sources, each toggleable in `config/sources.yaml`. Skip any source marked `enabled: false`. All four share the same CLI shape: `--query "<phrase>" --scope "<comma-list>" --limit N`.
+
+1. **Reddit** (Apify): `uv run python -m scout reddit --query "<icp pain phrase>" --scope "<relevant subs>" --limit 20`. Append each item's `title + text` to the fetch log. For the 5-10 top-scoring items, also call the Firecrawl scrape MCP on the `url` to pull full comment threads. Append the Firecrawl response text to the fetch log.
+2. **Hacker News** (Algolia, no auth): `uv run python -m scout hackernews --query "<icp pain phrase>" --limit 20`. Append each item's `title + text` to the fetch log. HN already returns top comments inline — no extra Firecrawl pass needed.
+3. **G2/Capterra** (Apify, 1-3 stars only): `uv run python -m scout g2 --query "<pain phrase>" --scope "<software-category-slugs>" --limit 15`. Append each review's `title + text` (which includes cons + "why I switched" sections) to the fetch log.
+4. **Quora** (Apify): `uv run python -m scout quora --query "<pain phrase>" --scope "<topic-slugs>" --limit 15`. Append each answer's `title + text` (HTML stripped) to the fetch log.
+5. As a supplement, call `mcp__perplexity__perplexity_search` for "complaints and negative reviews about <pain area> in <ICP> beyond G2 and Reddit". Append the result text + citations to the fetch log.
+6. Extract 20-30 candidate quotes (verbatim, in the source's voice). Each must have: `text`, `source` (e.g. `r/revops`, `Hacker News`, `G2: ExampleTool`, `Quora: <topic>`), `date`, `url`. Filter: keep quotes with concrete pain, urgency, dollar mentions, or "I wish someone would..." patterns. Target 8-15 final quotes after verification.
 
 **Bucket B — Market sizing + buyer profile**
 

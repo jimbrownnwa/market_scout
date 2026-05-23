@@ -4,10 +4,10 @@ version = "0.1.0"
 description = "Personal market research agent — Hormozi four-criteria scan + deep-dive"
 requires-python = ">=3.11"
 dependencies = [
-    "praw>=7.7.1",
     "pytrends>=4.9.2",
     "PyYAML>=6.0.1",
     "python-dotenv>=1.0.1",
+    "requests>=2.31",
 ]
 
 [project.optional-dependencies]

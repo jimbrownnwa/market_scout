@@ -23,8 +23,16 @@ Read `config/seeds.yaml` and include any `pinned_categories` in the brainstorm.
 
 Pick a scan-id (today's date, e.g. `2026-05-23`). Write the 60 candidates to `runs/.tmp/<scan-id>/candidates.json`. Each candidate object:
 ```json
-{"icp": "...", "category": "...", "keywords": ["...", "..."], "subreddits": ["...", "..."]}
+{
+  "icp": "...",
+  "category": "...",
+  "query": "lead routing chaos",
+  "reddit_subs": ["revops", "saas"],
+  "g2_categories": ["sales-engagement"],
+  "quora_topics": ["sales-operations"]
+}
 ```
+`query` is the free-text search phrase used across all pain sources. The per-source `*_scope` lists tell each adapter where to look (Reddit subs, G2 categories, Quora topics). HN ignores scope.
 
 ### Step 2 — Apply exclusions
 
@@ -38,11 +46,25 @@ The `kept` array becomes the working set. Each kept candidate now has `soft_pena
 
 For each candidate in `kept`, gather four signal bundles. Batch 5 candidates at a time to manage cost.
 
-**PAIN signal** — Reddit:
+**PAIN signal** — four pain sources, each toggleable in `config/sources.yaml`. Load that file first and skip any source marked `enabled: false`.
+
+All four sources share the same CLI shape: `--query "<phrase>" --scope "<comma-list>" --limit N`. Each returns the same `SourceSignal` JSON: `{source, query, item_count, items, summary}` where each item has `{id, title, text, url, score, date, author, ...}`.
+
 ```bash
-uv run python -m scout reddit --subreddits "<comma-separated>" --keywords "<keywords>" --limit 15
+# Reddit (Apify-backed; needs APIFY_TOKEN)
+uv run python -m scout reddit --query "<phrase>" --scope "<reddit_subs>" --limit 15
+
+# Hacker News (Algolia public API; no auth)
+uv run python -m scout hackernews --query "<phrase>" --limit 15
+
+# G2/Capterra (Apify; only pulls 1-3 star reviews by default)
+uv run python -m scout g2 --query "<phrase>" --scope "<g2_categories>" --limit 15
+
+# Quora (Apify)
+uv run python -m scout quora --query "<phrase>" --scope "<quora_topics>" --limit 15
 ```
-Capture the returned JSON (thread_count, threads, summary).
+
+Concatenate the `items` arrays from all enabled sources into a single pain-signal corpus for this candidate. The corpus is what you scan for verbatim phrases, complaint volume, and willingness signals.
 
 **POWER signal** — Perplexity research:
 Call `mcp__perplexity__perplexity_research` with query:
@@ -143,7 +165,8 @@ Show:
 
 ## Failure handling
 
-- If Reddit creds aren't configured: skip the pain Reddit call for that candidate; note "no reddit signal — credentials not configured" in the rationale; cap complaint_volume + recency at score 2.
+- Pain sources degrade gracefully — if Apify is unreachable, an actor is broken, or HN times out, the source returns a `SourceSignal` with `item_count: 0` and an `error` entry in `items`. The orchestrator should detect `item_count: 0` and note "no `<source>` signal — adapter unavailable" in the rationale. **Multiple pain sources** mean one outage doesn't kill the scan.
+- If ALL four pain sources return zero items, cap complaint_volume and recency at score 2 (evidence: "no pain sources returned results").
 - If pytrends rate-limits: retry once with 30s delay; if still fails, score `trends_curve` at 2 with evidence "pytrends rate-limited".
 - If Perplexity errors: skip that signal; score the affected sub-signals at 2 with evidence noting the failure.
 - Never invent quotes or evidence. Missing evidence → capped at 2.

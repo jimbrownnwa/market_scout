@@ -44,11 +44,37 @@ def cmd_filter(args: argparse.Namespace) -> int:
     return 0
 
 
+def _split_scope(scope_arg: str | None) -> list[str] | None:
+    if not scope_arg:
+        return None
+    parts = [p.strip() for p in scope_arg.split(",") if p.strip()]
+    return parts or None
+
+
 def cmd_reddit(args: argparse.Namespace) -> int:
-    from scout.sources.reddit import search_complaints
-    subreddits = args.subreddits.split(",")
-    keywords = args.keywords.split(",")
-    sig = search_complaints(subreddits, keywords, limit=args.limit)
+    from scout.sources.reddit import search
+    sig = search(query=args.query, limit=args.limit, scope=_split_scope(args.scope))
+    _emit(sig.to_dict())
+    return 0
+
+
+def cmd_hackernews(args: argparse.Namespace) -> int:
+    from scout.sources.hackernews import search
+    sig = search(query=args.query, limit=args.limit, scope=_split_scope(args.scope))
+    _emit(sig.to_dict())
+    return 0
+
+
+def cmd_g2(args: argparse.Namespace) -> int:
+    from scout.sources.g2 import search
+    sig = search(query=args.query, limit=args.limit, scope=_split_scope(args.scope))
+    _emit(sig.to_dict())
+    return 0
+
+
+def cmd_quora(args: argparse.Namespace) -> int:
+    from scout.sources.quora import search
+    sig = search(query=args.query, limit=args.limit, scope=_split_scope(args.scope))
     _emit(sig.to_dict())
     return 0
 
@@ -194,11 +220,18 @@ def build_parser() -> argparse.ArgumentParser:
     pf.add_argument("--input", required=True, help="Path to JSON list of candidates (or '-' for stdin)")
     pf.set_defaults(func=cmd_filter)
 
-    pr = sub.add_parser("reddit")
-    pr.add_argument("--subreddits", required=True, help="comma-separated subreddit names")
-    pr.add_argument("--keywords", required=True, help="comma-separated keywords")
-    pr.add_argument("--limit", type=int, default=25)
-    pr.set_defaults(func=cmd_reddit)
+    # Pain-signal sources — same shape across all four
+    def _add_source_parser(name: str, func, scope_help: str) -> None:
+        sp = sub.add_parser(name)
+        sp.add_argument("--query", required=True, help="free-text search query")
+        sp.add_argument("--scope", default=None, help=f"comma-separated {scope_help} (optional)")
+        sp.add_argument("--limit", type=int, default=25)
+        sp.set_defaults(func=func)
+
+    _add_source_parser("reddit", cmd_reddit, "subreddit names")
+    _add_source_parser("hackernews", cmd_hackernews, "(unused — HN has no scope)")
+    _add_source_parser("g2", cmd_g2, "software category slugs")
+    _add_source_parser("quora", cmd_quora, "Quora topic slugs")
 
     pt = sub.add_parser("trends")
     pt.add_argument("--keywords", required=True, help="comma-separated keywords")

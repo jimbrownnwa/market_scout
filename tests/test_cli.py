@@ -69,3 +69,13 @@ def test_cli_score_emits_composite(tmp_path):
     result = json.loads(proc.stdout)
     assert result["composite"] > 15
     assert result["cut"] is False
+
+
+@pytest.mark.parametrize("source_name", ["reddit", "hackernews", "g2", "quora"])
+def test_cli_source_subcommand_accepts_unified_args(source_name):
+    """Every source subcommand must accept --query, --scope, --limit identically."""
+    proc = run_cli(source_name, "--help")
+    assert proc.returncode == 0, proc.stderr
+    assert "--query" in proc.stdout
+    assert "--scope" in proc.stdout
+    assert "--limit" in proc.stdout
