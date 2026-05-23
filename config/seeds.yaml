@@ -1,0 +1,3 @@
+# Optional. Categories listed here are pinned to be considered every /scan.
+# Empty list = pure free-brainstorm each run.
+pinned_categories: []

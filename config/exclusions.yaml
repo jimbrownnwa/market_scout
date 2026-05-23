@@ -1,0 +1,19 @@
+categories:
+  - "AI automation agencies / consultancies"
+  - "Workflow automation tools (n8n, Make, Zapier consulting)"
+  - "Legal services / law firms"
+  - "Medical practices / clinical care"
+  - "Financial advisory / wealth management"
+  - "Tax preparation / CPAs"
+  - "Insurance brokerage"
+
+buyer_profiles:
+  - "Solopreneurs without recurring revenue"
+  - "Pre-revenue founders"
+  - "Course creators with <$10K MRR"
+  - "Personal coaches / freelance creatives without retainers"
+  - "Bootstrapped indie hackers pre-product-market-fit"
+
+soft_penalties:
+  - "Crypto/Web3 native businesses"
+  - "Cannabis"
