@@ -2,13 +2,16 @@
   "permissions": {
     "allow": [
       "Bash(uv run python -m scout *)",
+      "Bash(uv run python -c *)",
       "Bash(uv run pytest *)",
       "Bash(uv sync)",
       "Bash(uv add *)",
       "Bash(uv sync *)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(Get-Item -Path scout/__init__.py, scout/sources/__init__.py, tests/__init__.py -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object FullName, Length)"
     ]
   }
 }
