@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run python -m scout *)",
+      "Bash(uv run pytest *)",
+      "Bash(uv sync)",
+      "Bash(uv add *)",
+      "Bash(uv sync *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
+    ]
+  }
+}
