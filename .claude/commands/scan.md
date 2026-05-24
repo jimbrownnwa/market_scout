@@ -34,6 +34,17 @@ Pick a scan-id (today's date, e.g. `2026-05-23`). Write the 60 candidates to `ru
 ```
 `query` is the free-text search phrase used across all pain sources. The per-source `*_scope` lists tell each adapter where to look (Reddit subs, G2 categories, Quora topics). HN ignores scope.
 
+**Category assignment:** Assign each candidate one category from this fixed taxonomy:
+- `Trades / Field Services` — HVAC, plumbing, electrical, landscaping, construction contractors
+- `B2B SaaS Ops` — RevOps, CS Ops, Marketing Ops, DevEx, demand gen at SaaS companies
+- `Professional Services` — accounting firms, legal ops, marketing agencies, consulting shops
+- `Verticalized SMB` — dental groups, MSPs, freight brokers, landscaping businesses
+- `Mid-Market Functions` — fleet mgmt, finance ops, supply chain, procurement at mid-market cos
+- `Regulated Industries` — cybersecurity, compliance, legal ops at regulated enterprises
+- `Infrastructure & IT` — IT ops, DevOps, platform engineering at tech-heavy companies
+
+Write the category into each candidate JSON object's `"category"` field. After scoring is complete, note in the output if any category accounts for more than 50% of the top 25 — the `write-scan` command will flag it automatically, but you should be aware.
+
 ### Step 2 — Apply exclusions
 
 ```bash
@@ -45,6 +56,15 @@ The `kept` array becomes the working set. Each kept candidate now has `soft_pena
 ### Step 3 — Fetch signals per candidate (batched)
 
 For each candidate in `kept`, gather four signal bundles. Batch 5 candidates at a time to manage cost.
+
+**Citation rule (applies to all signals, all steps):** Every specific numeric claim — dollar amounts, deal counts, CAGRs, market sizes, funding amounts, subscriber counts — must include an inline source URL. Format: `"$240B market (Gartner, https://...)"`.
+
+If you cannot produce a URL for a statistic:
+- Mark it `(unverified)` rather than presenting it as fact
+- Do not cite "per Perplexity data" — surface the underlying source Perplexity used
+- If Perplexity provides a claim without a traceable URL, mark it `(unverified — no source URL)`
+
+This citation rule applies to all rationale fields, evidence strings, and the Why Each section of the scan output.
 
 **PAIN signal** — four pain sources, each toggleable in `config/sources.yaml`. Load that file first and skip any source marked `enabled: false`.
 
@@ -66,6 +86,16 @@ uv run python -m scout quora --query "<phrase>" --scope "<quora_topics>" --limit
 
 Concatenate the `items` arrays from all enabled sources into a single pain-signal corpus for this candidate. The corpus is what you scan for verbatim phrases, complaint volume, and willingness signals.
 
+**Pain evidence quality rule:** Before scoring each candidate's pain criterion, extract at least one verbatim quoted snippet (10–30 words) from the fetched corpus with its source URL. Use this as the lead evidence for `emotional_intensity` and `willingness_signals`. Thread volume counts ("47 threads") are supplementary — they must not be the only evidence.
+
+If no direct quotable snippet is found:
+- Cap `emotional_intensity` at score 2 (treat as missing evidence)
+- Cap `willingness_signals` at score 2 (treat as missing evidence)
+- Do not pad evidence fields with "N threads about X" phrasing as if that were a quote
+
+Format for evidence strings that include a quote:
+`'"[10-30 word verbatim excerpt]" ([upvote-count] upvotes, r/subreddit) — [url]'`
+
 **POWER signal** — Perplexity research:
 Call `mcp__perplexity__perplexity_research` with query:
 > "What is the typical budget, average deal size for adjacent services, and buyer authority profile for <ICP>? Cite sources."
@@ -83,9 +113,66 @@ uv run python -m scout trends --keywords "<single-keyword>"
 Plus `mcp__perplexity__perplexity_search`:
 > "Funding rounds, M&A, new entrants, regulatory shifts affecting <ICP> in the last 18 months."
 
+**Saturation Risk assessment:** For each candidate, assess how saturated the market is with AI automation agencies / n8n-Make-Zapier consultancies already targeting this exact ICP.
+
+Query Perplexity:
+> "AI automation agencies targeting [ICP role]; Make/n8n/Zapier consultancies serving [ICP industry]; 'AI for [role]' tools or agencies in [ICP space]"
+
+Assign `saturation_risk`:
+- `High` — >5 AI automation agencies, consultancies, or "AI for [role]" SaaS products already visibly competing for this buyer; role appears in n8n/Make/Zapier marketing content
+- `Medium` — 2–5 agencies visible; some competition but market not saturated
+- `Low` — <2 agencies; market relatively uncontested from an AI-automation-agency angle
+
+Write a one-sentence `saturation_reason` string (e.g. "8 AI automation agencies actively target CS Ops via Make/n8n community ads and Pavilion partnerships").
+
+Add both fields to each candidate's scoring JSON:
+```json
+{
+  "icp": "...",
+  "saturation_risk": "High",
+  "saturation_reason": "8 AI automation agencies target CS Ops...",
+  ...
+}
+```
+
+The scorer applies composite penalties automatically: High = −2.0, Medium = −1.0, Low = 0.0.
+
+**Source logging:** As you run each source, maintain a running `sources_log` dict. Update it after each candidate's sources are queried:
+
+```json
+{
+  "reddit": {
+    "queries": "<count of candidates where Reddit was queried>",
+    "subreddits": ["r/hvac", "r/msp"],
+    "threads_inspected": "<sum of item_count across all Reddit responses>"
+  },
+  "hackernews": {
+    "queries": "<count>",
+    "threads_inspected": "<sum>",
+    "note": "<empty string, or 'returned 0 results for most queries' if HN consistently returned 0>"
+  },
+  "g2": {
+    "queries": "<count>",
+    "pages_inspected": "<sum>",
+    "note": "<empty string, or 'actor epctex/g2-scraper unavailable (HTTP 404)' if broken>"
+  },
+  "quora": {
+    "queries": "<count>",
+    "pages_inspected": "<sum>",
+    "note": "<empty string, or 'actor epctex/quora-scraper unavailable (HTTP 404)' if broken>"
+  },
+  "perplexity": {"queries": "<count of mcp__perplexity calls made>"},
+  "google_trends": {"keywords_queried": "<count>"}
+}
+```
+
+If a source returns `item_count: 0` for every query, note that explicitly in its `note` field.
+
 ### Step 4 — Score each candidate
 
 For each candidate, assemble the signal bundle into a scoring input with sub-signal scores 1-5 and a one-line evidence citation per sub-signal. Use the rubric anchors in `config/rubric.yaml` to decide 1, 3, or 5 (and 2/4 between).
+
+**Distribution check (run after scoring all candidates):** Count how many surviving candidates scored 5.0 on each criterion. If any criterion has >30% of candidates at 5.0, you have ceiling compression. Re-score that criterion for the affected candidates using the 5-level anchors in `config/rubric.yaml` more strictly — a 5.0 requires genuinely exceptional evidence (e.g. for `concentrated_channels` a 5.0 means a named annual conference + active 10K+ Slack + canonical LinkedIn title + 100K+ community). Most ICPs should land at 2–4; reserve 5.0 for markets that clearly dominate on that dimension.
 
 **Rule: any sub-signal without a concrete evidence string is capped at 2 by the scorer. Do not invent evidence.**
 
@@ -131,10 +218,14 @@ Build a final bundle:
     "#4 — <different category>",
     "#11 — <different category>"
   ],
-  "sources": [
-    "https://...",
-    "..."
-  ]
+  "sources": {
+    "reddit": {"queries": 40, "subreddits": ["r/hvac", "r/msp"], "threads_inspected": 312},
+    "hackernews": {"queries": 40, "threads_inspected": 0, "note": "returned 0 results for most queries"},
+    "g2": {"queries": 0, "pages_inspected": 0, "note": "actor epctex/g2-scraper unavailable (HTTP 404)"},
+    "quora": {"queries": 0, "pages_inspected": 0, "note": "actor epctex/quora-scraper unavailable (HTTP 404)"},
+    "perplexity": {"queries": 120},
+    "google_trends": {"keywords_queried": 40}
+  }
 }
 ```
 
