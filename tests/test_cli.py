@@ -79,3 +79,94 @@ def test_cli_source_subcommand_accepts_unified_args(source_name):
     assert "--query" in proc.stdout
     assert "--scope" in proc.stdout
     assert "--limit" in proc.stdout
+
+
+def _make_bundle(candidates: list[dict], sources=None) -> dict:
+    """Build a minimal final_bundle dict for write-scan tests."""
+    ranked = []
+    for c in candidates:
+        ranked.append({
+            "icp": c.get("icp", "Test ICP"),
+            "category": c.get("category", "B2B SaaS Ops"),
+            "saturation_risk": c.get("saturation_risk", "Low"),
+            "saturation_reason": c.get("saturation_reason", ""),
+            "saturation_penalty": c.get("saturation_penalty", 0.0),
+            "criterion_scores": {"pain": 3.0, "purchasing_power": 3.0, "easy_to_target": 3.0, "growing": 3.0},
+            "composite": c.get("composite", 12.0),
+            "rationale": {"pain": "evidence", "purchasing_power": "evidence", "easy_to_target": "evidence", "growing": "evidence"},
+        })
+    return {
+        "focus": "",
+        "candidates_generated": len(candidates),
+        "candidates_scored": len(candidates),
+        "ranked": ranked,
+        "sources": sources if sources is not None else [],
+    }
+
+
+def _write_scan_content(tmp_path, bundle: dict) -> str:
+    """Run write-scan CLI and return the written file content."""
+    in_path = tmp_path / "bundle.json"
+    in_path.write_text(json.dumps(bundle), encoding="utf-8")
+    proc = run_cli("write-scan", "--input", str(in_path))
+    assert proc.returncode == 0, proc.stderr
+    out = json.loads(proc.stdout)
+    return Path(out["path"]).read_text(encoding="utf-8")
+
+
+def test_write_scan_flags_over_represented_category(tmp_path):
+    candidates = (
+        [{"icp": f"SaaS ICP {i}", "category": "B2B SaaS Ops"} for i in range(9)]
+        + [{"icp": f"Trades ICP {i}", "category": "Trades / Field Services"} for i in range(3)]
+    )
+    content = _write_scan_content(tmp_path, _make_bundle(candidates))
+    # 9 of 12 = 75% in B2B SaaS Ops — must flag
+    assert "B2B SaaS Ops" in content
+    assert "over-represented" in content.lower()
+
+
+def test_write_scan_no_flag_when_no_category_dominates(tmp_path):
+    candidates = (
+        [{"icp": f"SaaS ICP {i}", "category": "B2B SaaS Ops"} for i in range(3)]
+        + [{"icp": f"Trades ICP {i}", "category": "Trades / Field Services"} for i in range(3)]
+    )
+    content = _write_scan_content(tmp_path, _make_bundle(candidates))
+    assert "over-represented" not in content.lower()
+
+
+def test_write_scan_includes_saturation_column_and_detail(tmp_path):
+    candidates = [
+        {"icp": "CS Ops leads at 100-500 person B2B SaaS", "saturation_risk": "High", "saturation_reason": "8 AI automation agencies target this role", "saturation_penalty": -2.0},
+        {"icp": "HVAC business owners at $2-20M", "saturation_risk": "Low", "saturation_reason": "", "saturation_penalty": 0.0},
+    ]
+    content = _write_scan_content(tmp_path, _make_bundle(candidates))
+    # Table header has Saturation column
+    assert "Sat" in content
+    # Detail section shows saturation risk and reason for High market
+    assert "High" in content
+    assert "8 AI automation agencies" in content
+
+
+def test_write_scan_renders_structured_sources(tmp_path):
+    sources = {
+        "reddit": {"queries": 10, "subreddits": ["r/msp", "r/hvac"], "threads_inspected": 180},
+        "hackernews": {"queries": 10, "threads_inspected": 0, "note": "returned 0 results"},
+        "g2": {"queries": 0, "pages_inspected": 0, "note": "actor unavailable (HTTP 404)"},
+        "quora": {"queries": 0, "pages_inspected": 0, "note": "actor unavailable (HTTP 404)"},
+        "perplexity": {"queries": 30},
+        "google_trends": {"keywords_queried": 10},
+    }
+    content = _write_scan_content(tmp_path, _make_bundle([{"icp": "Test ICP"}], sources=sources))
+    assert "Reddit" in content
+    assert "180 threads" in content
+    assert "returned 0 results" in content
+    assert "actor unavailable" in content
+    assert "Perplexity" in content
+    assert "Google Trends" in content
+
+
+def test_write_scan_flat_list_sources_still_renders(tmp_path):
+    sources = ["https://reddit.com/r/msp", "https://perplexity.ai"]
+    content = _write_scan_content(tmp_path, _make_bundle([{"icp": "Test ICP"}], sources=sources))
+    assert "reddit.com" in content
+    assert "perplexity.ai" in content

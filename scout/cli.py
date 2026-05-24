@@ -95,26 +95,92 @@ def cmd_score(args: argparse.Namespace) -> int:
     return 0
 
 
+def _render_structured_sources(sources: dict) -> list[str]:
+    """Render the structured sources dict into markdown lines."""
+    lines: list[str] = []
+
+    reddit = sources.get("reddit", {})
+    if reddit:
+        subs = reddit.get("subreddits", [])
+        threads = reddit.get("threads_inspected", 0)
+        q = reddit.get("queries", 0)
+        lines.append(f"**Reddit:** {q} queries across {len(subs)} subreddits, {threads} threads inspected")
+        if subs:
+            lines.append(f"  - {', '.join(subs)}")
+
+    hn = sources.get("hackernews")
+    if hn is not None:
+        threads = hn.get("threads_inspected", 0)
+        q = hn.get("queries", 0)
+        note = hn.get("note", "")
+        line = f"**Hacker News:** {q} queries, {threads} threads inspected"
+        if note:
+            line += f" — {note}"
+        lines.append(line)
+
+    g2 = sources.get("g2")
+    if g2 is not None:
+        q = g2.get("queries", 0)
+        pages = g2.get("pages_inspected", 0)
+        note = g2.get("note", "")
+        line = f"**G2/Capterra:** {q} queries, {pages} pages inspected"
+        if note:
+            line += f" — {note}"
+        lines.append(line)
+
+    quora = sources.get("quora")
+    if quora is not None:
+        q = quora.get("queries", 0)
+        pages = quora.get("pages_inspected", 0)
+        note = quora.get("note", "")
+        line = f"**Quora:** {q} queries, {pages} pages inspected"
+        if note:
+            line += f" — {note}"
+        lines.append(line)
+
+    pplx = sources.get("perplexity")
+    if pplx:
+        lines.append(f"**Perplexity:** {pplx.get('queries', 0)} queries (power + target + growth signals)")
+
+    gt = sources.get("google_trends")
+    if gt:
+        lines.append(f"**Google Trends:** {gt.get('keywords_queried', 0)} keywords queried")
+
+    return lines
+
+
 def cmd_write_scan(args: argparse.Namespace) -> int:
     bundle = _load_input(args.input)
     today = date.today().isoformat()
     out_path = RUNS_DIR / "scans" / f"{today}-scan.md"
+
+    ranked = bundle.get("ranked", [])
 
     body_lines: list[str] = [
         f"# Market Scan — {today}",
         "",
         "## Top 25 (ranked by composite)",
         "",
-        "| # | ICP | Pain | Power | Target | Growth | Composite | Category |",
-        "|---|-----|------|-------|--------|--------|-----------|----------|",
+        "| # | ICP | Pain | Power | Target | Growth | Composite | Sat | Category |",
+        "|---|-----|------|-------|--------|--------|-----------|-----|----------|",
     ]
-    ranked = bundle.get("ranked", [])
     for idx, row in enumerate(ranked, 1):
         cs = row.get("criterion_scores", {})
+        sat = (row.get("saturation_risk", "Low") or "Low")[0]
         body_lines.append(
             f"| {idx} | {row['icp']} | {cs.get('pain', 0):.1f} | {cs.get('purchasing_power', 0):.1f} | "
-            f"{cs.get('easy_to_target', 0):.1f} | {cs.get('growing', 0):.1f} | {row.get('composite', 0):.1f} | {row.get('category', '')} |"
+            f"{cs.get('easy_to_target', 0):.1f} | {cs.get('growing', 0):.1f} | {row.get('composite', 0):.1f} | "
+            f"{sat} | {row.get('category', '')} |"
         )
+
+    from collections import Counter
+    cat_counts = Counter(row.get("category", "") for row in ranked if row.get("category", ""))
+    total = len(ranked)
+    over_rep = [(cat, cnt) for cat, cnt in cat_counts.items() if total > 0 and cnt / total > 0.50]
+    if over_rep:
+        body_lines.append("")
+        flags = "; ".join(f"**{cat}** {cnt} of {total} ({cnt/total:.0%})" for cat, cnt in over_rep)
+        body_lines.append(f"> **Category distribution note:** {flags} — over-represented. Consider diversifying in next scan.")
 
     body_lines += ["", "## Why each was selected", ""]
     for idx, row in enumerate(ranked, 1):
@@ -128,6 +194,15 @@ def cmd_write_scan(args: argparse.Namespace) -> int:
             score = row.get("criterion_scores", {}).get(crit_name, 0)
             evidence = row.get("rationale", {}).get(crit_name, "")
             body_lines.append(f"- **{label} ({score:.1f}):** {evidence}")
+        sat_risk = row.get("saturation_risk", "Low")
+        sat_reason = row.get("saturation_reason", "")
+        sat_penalty = row.get("saturation_penalty", 0.0)
+        sat_line = f"- **Saturation Risk ({sat_risk})**"
+        if sat_penalty and float(sat_penalty) != 0.0:
+            sat_line += f" — {float(sat_penalty):+.1f} composite penalty"
+        if sat_reason:
+            sat_line += f" — {sat_reason}"
+        body_lines.append(sat_line)
         body_lines.append("")
 
     suggested = bundle.get("suggested_next", [])
@@ -140,8 +215,11 @@ def cmd_write_scan(args: argparse.Namespace) -> int:
     sources = bundle.get("sources", [])
     if sources:
         body_lines += ["## Sources touched this scan", ""]
-        for i, url in enumerate(sources, 1):
-            body_lines.append(f"{i}. {url}")
+        if isinstance(sources, dict):
+            body_lines += _render_structured_sources(sources)
+        else:
+            for i, url in enumerate(sources, 1):
+                body_lines.append(f"{i}. {url}")
 
     fm = {
         "scan_date": today,
