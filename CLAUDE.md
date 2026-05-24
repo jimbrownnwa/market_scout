@@ -79,6 +79,21 @@ CLI mirrors: `uv run python -m scout {reddit|hackernews|g2|quora} --query "X" --
 - **Commits are atomic.** One logical change per commit, descriptive message, push immediately on `main`.
 - **Windows/PowerShell.** Bash tool uses Git Bash, forward-slash paths work. `uv` is on PATH.
 
+## Known broken pain sources (as of 2026-05-23)
+
+- **G2 actor `epctex/g2-scraper` returns HTTP 404** — actor no longer exists on Apify. Swap in `config/sources.yaml` when a replacement is found, or disable the source (`enabled: false`).
+- **Quora actor `epctex/quora-scraper` returns HTTP 404** — same issue. Quora actively fights scraping; treat this source as unreliable until a working actor is confirmed.
+- **HN (Algolia) returns 0 items** for most B2B niche queries — the API works but topic coverage is too sparse to be useful. HN pain signals only materialize for developer-adjacent ICPs.
+- **Practical effect:** Reddit is currently the only reliable pain source. All G2/Quora/HN sub-signals are evidence-capped at 2 automatically. Score rankings still hold — Reddit alone provides enough signal.
+
+## Scorer output shape
+
+The `scout score` CLI strips the full `criteria` object and returns only:
+```json
+{"icp": "...", "criterion_scores": {"pain": 4.0, ...}, "composite": 17.3, "cut": false, "cut_reason": ""}
+```
+When building `final_bundle.json`, you must separately inject `rationale` (evidence strings from the original per-candidate scored files) into each ranked entry — the scorer does not preserve evidence. The `write-scan` command reads both `criterion_scores` and `rationale` from each ranked entry.
+
 ## Common pitfalls (specific to this project)
 
 - **`str.lstrip("r/")` strips a character set, not a literal string.** Use `s.removeprefix("r/")` or `s[2:] if s.startswith("r/") else s`. (We hit this on Reddit subreddit URL building.)
@@ -86,6 +101,7 @@ CLI mirrors: `uv run python -m scout {reddit|hackernews|g2|quora} --query "X" --
 - **`pytrends` rate-limits aggressively.** Don't hammer it in a tight loop; one keyword per candidate is enough.
 - **HN Algolia URL** is `hn.algolia.com/api/v1` (not `angolia`, not `vi`).
 - **The fetch log is the source of truth for quotes.** If you change how the orchestrator stores fetch responses, update `scout.io.verify_quotes` too — they're a contract.
+- **Windows console UnicodeEncodeError** — evidence strings can contain non-ASCII characters (arrows, smart quotes). Always use `sys.stdout.reconfigure(encoding='utf-8', errors='replace')` in any ad-hoc Python scripts that print evidence.
 
 ## Secrets
 
