@@ -128,3 +128,69 @@ def test_soft_penalty_reduces_easy_to_target(rubric):
     }
     result = score_candidate(candidate, rubric)
     assert result["criterion_scores"]["easy_to_target"] == pytest.approx(3.0)
+
+
+def test_saturation_high_reduces_composite_by_2(rubric):
+    candidate = {
+        "icp": "CS Ops leads at 100-500 person B2B SaaS",
+        "saturation_risk": "High",
+        "criteria": {
+            "pain": {k: {"score": 3, "evidence": "x"} for k in ["complaint_volume", "emotional_intensity", "willingness_signals", "recency"]},
+            "purchasing_power": {k: {"score": 3, "evidence": "x"} for k in ["avg_deal_size", "budget_authority", "funded_or_profitable"]},
+            "easy_to_target": {k: {"score": 3, "evidence": "x"} for k in ["concentrated_channels", "identifiable_titles", "community_density"]},
+            "growing": {k: {"score": 3, "evidence": "x"} for k in ["trends_curve", "funding_momentum", "structural_tailwind"]},
+        },
+    }
+    result = score_candidate(candidate, rubric)
+    # Base composite: 3.0 * 4 criteria = 12.0; High penalty = -2.0 → 10.0
+    assert result["composite"] == pytest.approx(10.0)
+    assert result["saturation_risk"] == "High"
+    assert result["saturation_penalty"] == pytest.approx(-2.0)
+
+
+def test_saturation_medium_reduces_composite_by_1(rubric):
+    candidate = {
+        "icp": "RevOps leaders at 50-300 person B2B SaaS",
+        "saturation_risk": "Medium",
+        "criteria": {
+            "pain": {k: {"score": 3, "evidence": "x"} for k in ["complaint_volume", "emotional_intensity", "willingness_signals", "recency"]},
+            "purchasing_power": {k: {"score": 3, "evidence": "x"} for k in ["avg_deal_size", "budget_authority", "funded_or_profitable"]},
+            "easy_to_target": {k: {"score": 3, "evidence": "x"} for k in ["concentrated_channels", "identifiable_titles", "community_density"]},
+            "growing": {k: {"score": 3, "evidence": "x"} for k in ["trends_curve", "funding_momentum", "structural_tailwind"]},
+        },
+    }
+    result = score_candidate(candidate, rubric)
+    # Base: 12.0; Medium penalty = -1.0 → 11.0
+    assert result["composite"] == pytest.approx(11.0)
+    assert result["saturation_penalty"] == pytest.approx(-1.0)
+
+
+def test_saturation_low_no_penalty(rubric):
+    candidate = {
+        "icp": "HVAC business owners at $2-20M",
+        "saturation_risk": "Low",
+        "criteria": {
+            "pain": {k: {"score": 3, "evidence": "x"} for k in ["complaint_volume", "emotional_intensity", "willingness_signals", "recency"]},
+            "purchasing_power": {k: {"score": 3, "evidence": "x"} for k in ["avg_deal_size", "budget_authority", "funded_or_profitable"]},
+            "easy_to_target": {k: {"score": 3, "evidence": "x"} for k in ["concentrated_channels", "identifiable_titles", "community_density"]},
+            "growing": {k: {"score": 3, "evidence": "x"} for k in ["trends_curve", "funding_momentum", "structural_tailwind"]},
+        },
+    }
+    result = score_candidate(candidate, rubric)
+    assert result["composite"] == pytest.approx(12.0)
+    assert result["saturation_penalty"] == pytest.approx(0.0)
+
+
+def test_missing_saturation_risk_defaults_to_no_penalty(rubric):
+    candidate = {
+        "icp": "Some legacy ICP",
+        "criteria": {
+            "pain": {k: {"score": 3, "evidence": "x"} for k in ["complaint_volume", "emotional_intensity", "willingness_signals", "recency"]},
+            "purchasing_power": {k: {"score": 3, "evidence": "x"} for k in ["avg_deal_size", "budget_authority", "funded_or_profitable"]},
+            "easy_to_target": {k: {"score": 3, "evidence": "x"} for k in ["concentrated_channels", "identifiable_titles", "community_density"]},
+            "growing": {k: {"score": 3, "evidence": "x"} for k in ["trends_curve", "funding_momentum", "structural_tailwind"]},
+        },
+    }
+    result = score_candidate(candidate, rubric)
+    assert result["composite"] == pytest.approx(12.0)
+    assert result["saturation_penalty"] == pytest.approx(0.0)

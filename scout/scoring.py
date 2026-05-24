@@ -18,6 +18,7 @@ def load_rubric(path: Path | str) -> dict[str, Any]:
         },
         "weights": raw.get("weights", {"pain": 1.0, "purchasing_power": 1.0, "easy_to_target": 1.0, "growing": 1.0}),
         "hard_floors": raw.get("hard_floors", {}),
+        "saturation_penalties": raw.get("saturation_penalties", {"High": -2.0, "Medium": -1.0, "Low": 0.0}),
     }
 
 
@@ -42,10 +43,10 @@ def score_criterion(name: str, sub_signals: dict[str, dict[str, Any]], rubric: d
 
 
 def score_candidate(candidate: dict[str, Any], rubric: dict[str, Any]) -> dict[str, Any]:
-    """Compute criterion scores, composite, hard floor cuts, and soft penalty.
+    """Compute criterion scores, composite, hard floor cuts, soft penalty, and saturation penalty.
 
-    Input candidate dict: {icp, soft_penalty (0 or 1), criteria: {name: {sub_signal: {score, evidence}}}}
-    Returns: {icp, criterion_scores, composite, cut, cut_reason}
+    Input candidate dict: {icp, soft_penalty (0 or 1), saturation_risk ("Low"|"Medium"|"High"), criteria: {...}}
+    Returns: {icp, criterion_scores, composite, cut, cut_reason, saturation_risk, saturation_penalty}
     """
     criterion_scores: dict[str, float] = {}
     for crit_name in ("pain", "purchasing_power", "easy_to_target", "growing"):
@@ -57,7 +58,7 @@ def score_candidate(candidate: dict[str, Any], rubric: dict[str, Any]) -> dict[s
     if penalty:
         criterion_scores["easy_to_target"] = max(1.0, criterion_scores["easy_to_target"] - 1)
 
-    # Hard floors
+    # Hard floors — evaluated before saturation penalty
     cut = False
     cut_reason = ""
     for crit_name, floor in rubric.get("hard_floors", {}).items():
@@ -70,10 +71,18 @@ def score_candidate(candidate: dict[str, Any], rubric: dict[str, Any]) -> dict[s
     weights = rubric.get("weights", {})
     composite = sum(criterion_scores[c] * weights.get(c, 1.0) for c in criterion_scores)
 
+    # Saturation penalty — applied to composite after hard-floor check
+    sat_risk = candidate.get("saturation_risk", "Low") or "Low"
+    sat_penalties = rubric.get("saturation_penalties", {"High": -2.0, "Medium": -1.0, "Low": 0.0})
+    sat_penalty = float(sat_penalties.get(sat_risk, 0.0))
+    composite += sat_penalty
+
     return {
         "icp": candidate.get("icp", ""),
         "criterion_scores": criterion_scores,
         "composite": round(composite, 2),
         "cut": cut,
         "cut_reason": cut_reason,
+        "saturation_risk": sat_risk,
+        "saturation_penalty": sat_penalty,
     }
