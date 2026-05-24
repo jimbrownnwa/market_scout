@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections import Counter
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -173,7 +174,6 @@ def cmd_write_scan(args: argparse.Namespace) -> int:
             f"{sat} | {row.get('category', '')} |"
         )
 
-    from collections import Counter
     cat_counts = Counter(row.get("category", "") for row in ranked if row.get("category", ""))
     total = len(ranked)
     over_rep = [(cat, cnt) for cat, cnt in cat_counts.items() if total > 0 and cnt / total > 0.50]
