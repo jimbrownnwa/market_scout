@@ -1,70 +1,101 @@
-# Sub-signals are scored 1, 2, 3, 4, or 5.
-# Anchors shown below describe what 1, 3, and 5 look like.
-# 2 and 4 are "between" cases. Sub-signals lacking evidence are capped at 2.
+# Sub-signals are scored 1–5.
+# All five levels are defined below.
+# Sub-signals lacking evidence are capped at 2 by the scorer regardless of declared score.
+#
+# DISTRIBUTION CHECK (orchestrator enforced):
+# After scoring all candidates, if more than 30% of surviving candidates score 5.0 on any
+# single criterion, re-score that criterion using the stricter 5-level anchors below.
+# A 5.0 must be genuinely exceptional — most ICPs should land at 2–4.
 
 pain:
   signals:
     complaint_volume:
       1: "<5 threads in last 90 days"
-      3: "20-50 threads"
-      5: "100+ threads"
+      2: "5–19 threads"
+      3: "20–50 threads"
+      4: "51–99 threads"
+      5: "100+ threads across multiple sources with consistent themes"
     emotional_intensity:
-      1: "mild annoyance"
-      3: "frustrated, repeated"
-      5: "'I hate this', 'killing me', 'desperate'"
+      1: "mild annoyance; informational tone dominates"
+      2: "some frustration; occasional strong language"
+      3: "frustrated, repeated; 'this is a real problem' tone"
+      4: "strong emotional language ('hate', 'nightmare') in top posts"
+      5: "'I hate this', 'killing me', 'desperate'; verbatim high-upvote posts (100+ upvotes) with extreme language; quotes verifiable"
     willingness_signals:
       1: "none found"
-      3: "2-3 instances of 'I would pay' / 'shut up and take my money' / 'we hired X'"
-      5: "6+ instances across sources"
+      2: "1 vague spending reference"
+      3: "2–3 instances of 'I would pay' / 'we hired X' / 'we bought Y tool'"
+      4: "4–5 instances with dollar amounts or named vendors"
+      5: "6+ clear instances across sources; actual spend amounts and vendor names cited"
     recency:
-      1: "complaints peaked >2y ago"
-      3: "steady over 12mo"
-      5: "accelerating in last 6mo"
+      1: "complaints peaked >2y ago; recent posts rare"
+      2: "peaked 1–2y ago; some recency but declining"
+      3: "steady over 12mo; problem not going away"
+      4: "growing in last 6mo; new high-engagement posts appearing"
+      5: "accelerating in last 6mo; multiple new viral/high-upvote posts; active 2026 discussions visible"
 
 purchasing_power:
   signals:
     avg_deal_size:
       1: "<$5K/yr typical spend in adjacent services"
-      3: "$25-100K/yr"
-      5: "$250K+/yr"
+      2: "$5–24K/yr"
+      3: "$25–100K/yr"
+      4: "$100–249K/yr"
+      5: "$250K+/yr; enterprise-grade budgets documented in public sources"
     budget_authority:
-      1: "needs 3+ approvals"
-      3: "department head decides"
-      5: "ICP holds the budget directly"
+      1: "needs 3+ approvals including board or C-suite override"
+      2: "needs 3 approvals; procurement committee involved"
+      3: "department head decides; 1–2 approvals (CFO/CTO/CEO sign-off)"
+      4: "1 approval needed; ICP can green-light up to $50K independently"
+      5: "ICP holds budget directly; no meaningful approval needed; sole decision-maker up to $100K+"
     funded_or_profitable:
-      1: "mostly struggling / pre-revenue"
-      3: "mixed cohort"
-      5: "well-funded or profitable cohort"
+      1: "mostly struggling / pre-revenue / unprofitable with no clear path"
+      2: "some viable, many struggling; inconsistent ability to pay"
+      3: "mixed cohort; roughly half can buy comfortably"
+      4: "mostly profitable or well-funded; clear ability to pay in most cases"
+      5: "uniformly well-funded (>Series B) or consistently profitable; proven discretionary spend on advisory services"
 
 easy_to_target:
   signals:
     concentrated_channels:
-      1: "diffuse, no clear watering holes"
-      3: "2-3 channels reach most of ICP"
-      5: "1-2 channels reach 70%+ of ICP"
+      1: "diffuse; ICP scattered across 5+ platforms with no dominant venue"
+      2: "1–2 channels exist but sparse or niche (<5K members); hard to reach programmatically"
+      3: "2–3 mid-size channels reach most of ICP; active but not dominant"
+      4: "1–2 strong channels reach 60%+ of ICP (e.g. 50K+ Reddit sub + active Slack)"
+      5: "named annual conference + active 10K+ Slack + canonical LinkedIn title + 100K+ community; 70%+ of ICP reachable via 1–2 channels"
     identifiable_titles:
-      1: "fuzzy / many title variants"
-      3: "moderately clean"
-      5: "single canonical title (e.g., 'Head of RevOps')"
+      1: "fuzzy; many title variants; LinkedIn search returns noisy mixed results"
+      2: "2–3 common titles with ambiguity; LinkedIn search noisy"
+      3: "2 canonical titles; moderately clean LinkedIn targeting"
+      4: "single common canonical title; 10K–50K LinkedIn profiles; minor title variance"
+      5: "single canonical title with 50K+ searchable profiles; rare confusion (e.g. 'Head of RevOps', 'CISO', 'MSP Owner')"
     community_density:
-      1: "no active communities"
-      3: "a few"
-      5: "vibrant, frequent posts, active Slack/Discord"
+      1: "no active communities; ICP has no online gathering place"
+      2: "1 small community under 5K members; infrequent posts"
+      3: "a few communities with moderate activity; weekly posts; 5K–25K members"
+      4: "active Slack/Discord + major forum; daily new posts; 25K–100K combined"
+      5: "multi-channel vibrant community (100K+ combined); dedicated annual conferences; active newsletters; daily posts across channels"
 
 growing:
   signals:
     trends_curve:
-      1: "declining (pytrends)"
-      3: "flat"
-      5: "up >50% in 24mo"
+      1: "declining (pytrends shows clear downtrend over 24mo)"
+      2: "slightly declining or flat-to-negative"
+      3: "flat (±10% over 24mo)"
+      4: "growing 20–50% in 24mo"
+      5: "growing >50% in 24mo; clear acceleration visible in pytrends chart"
     funding_momentum:
-      1: "no rounds in 18mo"
-      3: "occasional"
-      5: "multiple rounds, increasing size"
+      1: "no rounds in 18mo in adjacent tools or services"
+      2: "1 small round (<$10M) in 18mo"
+      3: "1–2 rounds of moderate size in 18mo; category getting attention"
+      4: "2–3 rounds including at least one >$20M; category clearly active"
+      5: "multiple large rounds (>$30M each) across multiple companies in 18mo; VC category thesis forming"
     structural_tailwind:
-      1: "none"
-      3: "one (regulation / tech shift / demographic)"
-      5: "two or more"
+      1: "none; market is stable or contracting"
+      2: "one weak/demographic tailwind"
+      3: "one strong tailwind (major regulation, large tech platform shift, or macro force)"
+      4: "two tailwinds"
+      5: "two or more strong compounding tailwinds simultaneously (e.g. regulation + AI shift + PE consolidation)"
 
 weights:
   pain: 1.0
@@ -75,3 +106,13 @@ weights:
 hard_floors:
   purchasing_power: 1
   pain: 2
+
+# Saturation penalty applied to composite score.
+# The orchestrator assesses saturation_risk for each ICP and sets the field in the candidate JSON.
+# High = >5 AI automation agencies actively targeting this role; "AI for [role]" is already a product category
+# Medium = 2–5 agencies visible; some saturation but not overwhelming
+# Low = <2 agencies; market relatively uncontested from the AI-automation-agency angle
+saturation_penalties:
+  High: -2.0
+  Medium: -1.0
+  Low: 0.0
