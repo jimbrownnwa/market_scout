@@ -35,10 +35,10 @@ Pick a scan-id (today's date, e.g. `2026-05-23`). Write the 60 candidates to `ru
 `query` is the free-text search phrase used across all pain sources. The per-source `*_scope` lists tell each adapter where to look (Reddit subs, G2 categories, Quora topics). HN ignores scope.
 
 **Category assignment:** Assign each candidate one category from this fixed taxonomy:
-- `Trades / Field Services` — HVAC, plumbing, electrical, landscaping, construction contractors
+- `Trades / Field Services` — HVAC, plumbing, electrical, construction contractors; use for *technician/worker/field-service company* ICPs
 - `B2B SaaS Ops` — RevOps, CS Ops, Marketing Ops, DevEx, demand gen at SaaS companies
 - `Professional Services` — accounting firms, legal ops, marketing agencies, consulting shops
-- `Verticalized SMB` — dental groups, MSPs, freight brokers, landscaping businesses
+- `Verticalized SMB` — dental groups, MSPs, freight brokers, landscaping business owners; use for *owner/operator* ICPs in small verticals not covered by other categories
 - `Mid-Market Functions` — fleet mgmt, finance ops, supply chain, procurement at mid-market cos
 - `Regulated Industries` — cybersecurity, compliance, legal ops at regulated enterprises
 - `Infrastructure & IT` — IT ops, DevOps, platform engineering at tech-heavy companies
@@ -173,6 +173,8 @@ If a source returns `item_count: 0` for every query, note that explicitly in its
 For each candidate, assemble the signal bundle into a scoring input with sub-signal scores 1-5 and a one-line evidence citation per sub-signal. Use the rubric anchors in `config/rubric.yaml` to decide 1, 3, or 5 (and 2/4 between).
 
 **Distribution check (run after scoring all candidates):** Count how many surviving candidates scored 5.0 on each criterion. If any criterion has >30% of candidates at 5.0, you have ceiling compression. Re-score that criterion for the affected candidates using the 5-level anchors in `config/rubric.yaml` more strictly — a 5.0 requires genuinely exceptional evidence (e.g. for `concentrated_channels` a 5.0 means a named annual conference + active 10K+ Slack + canonical LinkedIn title + 100K+ community). Most ICPs should land at 2–4; reserve 5.0 for markets that clearly dominate on that dimension.
+
+**Citation reminder:** All numeric claims in rationale fields (dollar amounts, deal counts, CAGRs, market sizes, funding amounts) must include inline source URLs per the citation rule in Step 3. Do not carry forward unverified stats from the fetch phase into rationale strings.
 
 **Rule: any sub-signal without a concrete evidence string is capped at 2 by the scorer. Do not invent evidence.**
 
