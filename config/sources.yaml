@@ -11,10 +11,10 @@ hackernews:
   # No actor, no auth — uses the public Algolia HN Search API directly.
 
 g2:
-  enabled: true
+  enabled: false            # epctex/g2-scraper returns HTTP 404 — actor removed from Apify
   apify_actor: "epctex/g2-scraper"
   max_stars: 3              # only pull 1-3 star reviews (negative-only)
 
 quora:
-  enabled: true
+  enabled: false            # epctex/quora-scraper returns HTTP 404 — actor removed from Apify
   apify_actor: "epctex/quora-scraper"
