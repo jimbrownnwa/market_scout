@@ -72,7 +72,7 @@ All four sources share the same CLI shape: `--query "<phrase>" --scope "<comma-l
 
 ```bash
 # Reddit (Apify-backed; needs APIFY_TOKEN)
-uv run python -m scout reddit --query "<phrase>" --scope "<reddit_subs>" --limit 15
+uv run python -m scout reddit --query "<phrase>" --scope "<reddit_subs>" --limit 8
 
 # Hacker News (Algolia public API; no auth)
 uv run python -m scout hackernews --query "<phrase>" --limit 15
